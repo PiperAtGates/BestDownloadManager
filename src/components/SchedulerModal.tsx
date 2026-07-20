@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Clock, Calendar } from 'lucide-react';
+import { X, Clock } from 'lucide-react';
 import styles from './Settings.module.css'; // Reusing modal styles
 
 interface Props {

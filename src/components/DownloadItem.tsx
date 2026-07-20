@@ -1,7 +1,7 @@
 import React from 'react';
 import { DownloadTask, useDownloadStore } from '../store/downloadStore';
 import { formatBytes, formatTime } from '../utils/formatters';
-import { Play, Pause, Trash2, RotateCw, FileBox } from 'lucide-react';
+import { Play, Pause, Trash2, FileBox } from 'lucide-react';
 import styles from './DownloadItem.module.css';
 
 interface Props {
