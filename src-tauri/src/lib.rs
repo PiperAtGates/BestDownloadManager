@@ -9,10 +9,12 @@ use tauri::State;
 use download_manager::http::HttpDownloader;
 use download_manager::queue::QueueManager;
 use download_manager::torrent::TorrentDownloader;
+use download_manager::youtube::YoutubeDownloader;
 
 struct AppState {
     http_downloader: HttpDownloader,
     torrent_downloader: TorrentDownloader,
+    youtube_downloader: YoutubeDownloader,
     queue_manager: Arc<QueueManager>,
 }
 
@@ -26,6 +28,8 @@ async fn start_download(
 ) -> Result<(), String> {
     if url.starts_with("magnet:") {
         state.torrent_downloader.start_torrent(app, task_id, url, destination).await
+    } else if url.contains("youtube.com") || url.contains("youtu.be") {
+        state.youtube_downloader.start_download(app, task_id, url, destination).await
     } else {
         state.http_downloader.start_download(app, task_id, url, destination).await
     }
@@ -43,6 +47,7 @@ async fn pause_download(
 pub fn run() {
     let http_downloader = HttpDownloader::new();
     let torrent_downloader = TorrentDownloader::new();
+    let youtube_downloader = YoutubeDownloader::new();
     let queue_manager = Arc::new(QueueManager::new());
 
     tauri::Builder::default()
@@ -50,6 +55,7 @@ pub fn run() {
         .manage(AppState {
             http_downloader,
             torrent_downloader,
+            youtube_downloader,
             queue_manager,
         })
         .invoke_handler(tauri::generate_handler![start_download, pause_download])
