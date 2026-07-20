@@ -39,7 +39,10 @@ export const useDownloadStore = create<DownloadStore>((set, get) => ({
       taskId: task.id, 
       url: task.url, 
       destination: `${get().downloadLocation}\\${task.filename}` 
-    }).catch(console.error);
+    }).catch(err => {
+      console.error(err);
+      alert(`Failed to start download: ${err}. Are you running in a regular web browser instead of the Tauri app?`);
+    });
     set((state) => ({ tasks: [task, ...state.tasks] }));
   },
   updateTask: (id, updates) => set((state) => ({
@@ -58,7 +61,10 @@ export const useDownloadStore = create<DownloadStore>((set, get) => ({
         taskId: task.id, 
         url: task.url, 
         destination: `${get().downloadLocation}\\${task.filename}` 
-      }).catch(console.error);
+      }).catch(err => {
+        console.error(err);
+        alert(`Failed to start download: ${err}. Are you running in a regular web browser instead of the Tauri app?`);
+      });
     }
     return {
       tasks: state.tasks.map(t => t.id === id ? { ...t, status: 'queued' } : t)
