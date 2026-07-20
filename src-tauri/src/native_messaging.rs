@@ -2,7 +2,7 @@ use std::io::{self, Read, Write};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 struct IncomingMessage {
     action: String,
     url: String,
