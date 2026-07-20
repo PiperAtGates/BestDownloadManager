@@ -1,0 +1,39 @@
+name: Build and Test
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install Frontend Dependencies
+      run: npm ci
+
+    - name: Run Tests (Rust)
+      run: cargo test
+      working-directory: ./src-tauri
+
+    - name: Build Tauri App
+      run: npm run tauri build
+
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: BestDownloadManager-Windows
+        path: src-tauri/target/release/bundle/

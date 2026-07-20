@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Best Download Manager Extension",
+  "version": "1.0",
+  "description": "Intercepts downloads and sends them to the Vanguard desktop app.",
+  "permissions": [
+    "downloads",
+    "nativeMessaging"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "128": "icon.png"
+  }
+}
