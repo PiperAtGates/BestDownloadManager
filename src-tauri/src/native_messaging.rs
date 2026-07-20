@@ -1,6 +1,6 @@
 use std::io::{self, Read, Write};
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 
 #[derive(Deserialize, Debug)]
 struct IncomingMessage {
