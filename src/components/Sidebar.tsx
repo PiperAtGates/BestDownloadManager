@@ -1,5 +1,5 @@
 import React from 'react';
-import { DownloadCloud, CheckCircle2, Clock, Settings, LayoutDashboard, Folder, Lock, Calendar } from 'lucide-react';
+import { DownloadCloud, CheckCircle2, Clock, Settings, LayoutDashboard, Folder, Lock, Calendar, Heart } from 'lucide-react';
 import styles from './Sidebar.module.css';
 
 interface Props {
@@ -63,6 +63,19 @@ export const Sidebar: React.FC<Props> = ({ activeFilter, setActiveFilter, onOpen
       </nav>
 
       <div className={styles.spacer} />
+
+      <div style={{ padding: '0 16px 16px 16px' }}>
+        <a 
+          href="https://www.buymeacoffee.com/" 
+          target="_blank" 
+          rel="noreferrer"
+          className="btn-primary" 
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: '#FF813F', color: 'white', textDecoration: 'none', fontSize: '14px' }}
+        >
+          <Heart size={16} fill="white" />
+          Support Project
+        </a>
+      </div>
 
       <nav className={styles.navGroup}>
         <button className={styles.navItem} onClick={onOpenScheduler}>
