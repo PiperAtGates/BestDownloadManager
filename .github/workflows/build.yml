@@ -1,0 +1,41 @@
+name: Build and Test
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 18
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install Frontend Dependencies
+      run: npm ci
+      working-directory: ./vanguard
+
+    - name: Run Tests (Rust)
+      run: cargo test
+      working-directory: ./vanguard/src-tauri
+
+    - name: Build Tauri App
+      run: npm run tauri build
+      working-directory: ./vanguard
+
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: Vanguard-Windows
+        path: vanguard/src-tauri/target/release/bundle/
