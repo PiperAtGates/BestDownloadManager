@@ -24,18 +24,16 @@ jobs:
 
     - name: Install Frontend Dependencies
       run: npm ci
-      working-directory: ./vanguard
 
     - name: Run Tests (Rust)
       run: cargo test
-      working-directory: ./vanguard/src-tauri
+      working-directory: ./src-tauri
 
     - name: Build Tauri App
       run: npm run tauri build
-      working-directory: ./vanguard
 
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: Vanguard-Windows
-        path: vanguard/src-tauri/target/release/bundle/
+        name: BestDownloadManager-Windows
+        path: src-tauri/target/release/bundle/
