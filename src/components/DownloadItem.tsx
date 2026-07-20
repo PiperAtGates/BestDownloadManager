@@ -1,7 +1,7 @@
 import React from 'react';
 import { DownloadTask, useDownloadStore } from '../store/downloadStore';
 import { formatBytes, formatTime } from '../utils/formatters';
-import { Play, Pause, Trash2, FileBox } from 'lucide-react';
+import { Play, Pause, Trash2, FileBox, Copy } from 'lucide-react';
 import styles from './DownloadItem.module.css';
 
 interface Props {
@@ -14,6 +14,10 @@ export const DownloadItem: React.FC<Props> = ({ task }) => {
   const progress = task.totalBytes > 0 
     ? (task.downloadedBytes / task.totalBytes) * 100 
     : 0;
+
+  const handleCopyUrl = () => {
+    navigator.clipboard.writeText(task.url);
+  };
 
   return (
     <div className={`glass-panel animate-fade-in ${styles.downloadItem}`}>
@@ -56,6 +60,9 @@ export const DownloadItem: React.FC<Props> = ({ task }) => {
       </div>
 
       <div className={styles.actions}>
+        <button className="btn-icon" onClick={handleCopyUrl} title="Copy URL">
+          <Copy size={18} />
+        </button>
         {task.status === 'downloading' ? (
           <button className="btn-icon" onClick={() => pauseTask(task.id)} title="Pause">
             <Pause size={18} />

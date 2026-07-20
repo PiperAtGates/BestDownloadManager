@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 
 export type DownloadStatus = 'downloading' | 'paused' | 'completed' | 'error' | 'queued';
 
@@ -22,51 +24,24 @@ interface DownloadStore {
   removeTask: (id: string) => void;
   pauseTask: (id: string) => void;
   resumeTask: (id: string) => void;
+  autoCategorize: boolean;
+  setAutoCategorize: (val: boolean) => void;
+  downloadLocation: string;
+  setDownloadLocation: (path: string) => void;
 }
 
-// Mock initial state for UI development
-const initialTasks: DownloadTask[] = [
-  {
-    id: '1',
-    url: 'https://example.com/ubuntu-24.04-desktop-amd64.iso',
-    filename: 'ubuntu-24.04-desktop-amd64.iso',
-    totalBytes: 5 * 1024 * 1024 * 1024,
-    downloadedBytes: 1.2 * 1024 * 1024 * 1024,
-    speedBytesPerSec: 15 * 1024 * 1024,
-    status: 'downloading',
-    category: 'Software',
-    etaSeconds: 253,
-    createdAt: Date.now() - 100000,
-  },
-  {
-    id: '2',
-    url: 'magnet:?xt=urn:btih:...',
-    filename: 'Blender 4.1.zip',
-    totalBytes: 850 * 1024 * 1024,
-    downloadedBytes: 850 * 1024 * 1024,
-    speedBytesPerSec: 0,
-    status: 'completed',
-    category: 'Software',
-    etaSeconds: 0,
-    createdAt: Date.now() - 500000,
-  },
-  {
-    id: '3',
-    url: 'https://example.com/movie.mp4',
-    filename: 'holiday_video_1080p.mp4',
-    totalBytes: 2.1 * 1024 * 1024 * 1024,
-    downloadedBytes: 0.5 * 1024 * 1024 * 1024,
-    speedBytesPerSec: 0,
-    status: 'paused',
-    category: 'Video',
-    etaSeconds: 0,
-    createdAt: Date.now(),
-  }
-];
+// Removed mock data
 
-export const useDownloadStore = create<DownloadStore>((set) => ({
-  tasks: initialTasks,
-  addTask: (task) => set((state) => ({ tasks: [task, ...state.tasks] })),
+export const useDownloadStore = create<DownloadStore>((set, get) => ({
+  tasks: [],
+  addTask: (task) => {
+    invoke('start_download', { 
+      taskId: task.id, 
+      url: task.url, 
+      destination: `${get().downloadLocation}\\${task.filename}` 
+    }).catch(console.error);
+    set((state) => ({ tasks: [task, ...state.tasks] }));
+  },
   updateTask: (id, updates) => set((state) => ({
     tasks: state.tasks.map(t => t.id === id ? { ...t, ...updates } : t)
   })),
@@ -76,7 +51,21 @@ export const useDownloadStore = create<DownloadStore>((set) => ({
   pauseTask: (id) => set((state) => ({
     tasks: state.tasks.map(t => t.id === id ? { ...t, status: 'paused', speedBytesPerSec: 0 } : t)
   })),
-  resumeTask: (id) => set((state) => ({
-    tasks: state.tasks.map(t => t.id === id ? { ...t, status: 'queued' } : t)
-  })),
+  resumeTask: (id) => set((state) => {
+    const task = state.tasks.find(t => t.id === id);
+    if (task) {
+      invoke('start_download', { 
+        taskId: task.id, 
+        url: task.url, 
+        destination: `${get().downloadLocation}\\${task.filename}` 
+      }).catch(console.error);
+    }
+    return {
+      tasks: state.tasks.map(t => t.id === id ? { ...t, status: 'queued' } : t)
+    };
+  }),
+  autoCategorize: true,
+  setAutoCategorize: (val) => set({ autoCategorize: val }),
+  downloadLocation: 'C:\\Downloads',
+  setDownloadLocation: (val) => set({ downloadLocation: val }),
 }));

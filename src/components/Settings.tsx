@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Shield, Activity, HardDrive } from 'lucide-react';
 import styles from './Settings.module.css';
+import { useDownloadStore } from '../store/downloadStore';
 
 interface Props {
   isOpen: boolean;
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export const Settings: React.FC<Props> = ({ isOpen, onClose }) => {
+  const { autoCategorize, setAutoCategorize, downloadLocation, setDownloadLocation } = useDownloadStore();
   if (!isOpen) return null;
 
   return (
@@ -25,7 +27,21 @@ export const Settings: React.FC<Props> = ({ isOpen, onClose }) => {
             <h3><HardDrive size={16}/> General</h3>
             <div className={styles.settingRow}>
               <label>Default Download Location</label>
-              <input type="text" defaultValue="C:\Downloads\Vanguard" className={styles.input} />
+              <input 
+                type="text" 
+                value={downloadLocation} 
+                onChange={(e) => setDownloadLocation(e.target.value)} 
+                className={styles.input} 
+              />
+            </div>
+            <div className={styles.settingRow}>
+              <label>Auto-Categorize Downloads</label>
+              <input 
+                type="checkbox" 
+                checked={autoCategorize} 
+                onChange={(e) => setAutoCategorize(e.target.checked)}
+                style={{width: '18px', height: '18px'}} 
+              />
             </div>
           </div>
 

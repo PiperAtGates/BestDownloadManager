@@ -11,7 +11,7 @@ interface Props {
 export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [url, setUrl] = useState('');
   const [category, setCategory] = useState('Software');
-  const { addTask } = useDownloadStore();
+  const { addTask, autoCategorize } = useDownloadStore();
 
   if (!isOpen) return null;
 
@@ -40,6 +40,28 @@ export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
     onClose();
   };
 
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newUrl = e.target.value;
+    setUrl(newUrl);
+
+    if (autoCategorize) {
+      const lowerUrl = newUrl.toLowerCase();
+      if (lowerUrl.startsWith('magnet:')) {
+        setCategory('Software'); // Or Other
+      } else if (lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be') || lowerUrl.includes('vimeo.com')) {
+        setCategory('Video');
+      } else if (lowerUrl.endsWith('.mp4') || lowerUrl.endsWith('.mkv') || lowerUrl.endsWith('.avi')) {
+        setCategory('Video');
+      } else if (lowerUrl.endsWith('.mp3') || lowerUrl.endsWith('.wav') || lowerUrl.endsWith('.flac')) {
+        setCategory('Music');
+      } else if (lowerUrl.endsWith('.pdf') || lowerUrl.endsWith('.doc') || lowerUrl.endsWith('.docx') || lowerUrl.endsWith('.txt')) {
+        setCategory('Documents');
+      } else if (lowerUrl.endsWith('.zip') || lowerUrl.endsWith('.rar') || lowerUrl.endsWith('.7z') || lowerUrl.endsWith('.iso') || lowerUrl.endsWith('.exe')) {
+        setCategory('Software');
+      }
+    }
+  };
+
   return (
     <div className={styles.overlay}>
       <div className={`glass-panel animate-fade-in ${styles.modal}`}>
@@ -59,7 +81,7 @@ export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 <input 
                   type="text" 
                   value={url}
-                  onChange={(e) => setUrl(e.target.value)}
+                  onChange={handleUrlChange}
                   placeholder="https://... or magnet:?xt=..." 
                   className={styles.input}
                   autoFocus
