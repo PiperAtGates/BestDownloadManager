@@ -14,6 +14,8 @@ export interface DownloadTask {
   category: string;
   etaSeconds: number;
   createdAt: number;
+  errorMessage?: string;
+  progress: number;
 }
 
 interface DownloadStore {

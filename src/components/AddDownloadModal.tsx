@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { X, Link, Folder, Search } from 'lucide-react';
+import { X, Link, Folder, Search, FileUp } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-dialog';
 import { useDownloadStore } from '../store/downloadStore';
 import styles from './AddDownloadModal.module.css';
 
@@ -10,7 +12,9 @@ interface Props {
 
 export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [url, setUrl] = useState('');
+  const [filename, setFilename] = useState('');
   const [category, setCategory] = useState('Software');
+  const [isFetchingInfo, setIsFetchingInfo] = useState(false);
   const { addTask, autoCategorize } = useDownloadStore();
 
   if (!isOpen) return null;
@@ -19,14 +23,17 @@ export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
     e.preventDefault();
     if (!url.trim()) return;
 
-    let filename = url.split('/').pop() || 'download_file';
-    if (filename.includes('?')) filename = filename.split('?')[0];
-    if (!filename) filename = 'unknown_file';
+    let finalFilename = filename.trim();
+    if (!finalFilename) {
+      finalFilename = url.split('/').pop() || 'download_file';
+      if (finalFilename.includes('?')) finalFilename = finalFilename.split('?')[0];
+      if (!finalFilename) finalFilename = 'unknown_file';
+    }
 
     addTask({
       id: crypto.randomUUID(),
       url,
-      filename,
+      filename: finalFilename,
       totalBytes: 0,
       downloadedBytes: 0,
       speedBytesPerSec: 0,
@@ -37,6 +44,7 @@ export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
     });
 
     setUrl('');
+    setFilename('');
     onClose();
   };
 
@@ -46,7 +54,7 @@ export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
     if (autoCategorize) {
       const lowerUrl = newUrl.toLowerCase();
-      if (lowerUrl.startsWith('magnet:')) {
+      if (lowerUrl.startsWith('magnet:') || lowerUrl.endsWith('.torrent')) {
         setCategory('Software'); // Or Other
       } else if (lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be') || lowerUrl.includes('vimeo.com')) {
         setCategory('Video');
@@ -59,6 +67,33 @@ export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
       } else if (lowerUrl.endsWith('.zip') || lowerUrl.endsWith('.rar') || lowerUrl.endsWith('.7z') || lowerUrl.endsWith('.iso') || lowerUrl.endsWith('.exe')) {
         setCategory('Software');
       }
+    }
+
+    if (newUrl.includes('youtube.com') || newUrl.includes('youtu.be')) {
+      setIsFetchingInfo(true);
+      invoke<string>('get_youtube_info', { url: newUrl })
+        .then((title) => {
+          setFilename(title);
+        })
+        .catch((e) => console.error(e))
+        .finally(() => setIsFetchingInfo(false));
+    }
+  };
+
+  const handleBrowseTorrent = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: 'Torrent', extensions: ['torrent'] }]
+      });
+      if (selected && typeof selected === 'string') {
+        setUrl(selected);
+        const name = selected.split('\\').pop()?.split('/').pop() || 'torrent_file';
+        setFilename(name);
+        if (autoCategorize) setCategory('Software');
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -90,11 +125,26 @@ export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
               <button 
                 type="button" 
                 className="btn-icon" 
+                onClick={handleBrowseTorrent}
                 style={{backgroundColor: 'var(--surface-highlight)', color: 'var(--text-primary)'}}
-                title="Sniff Media from URL (yt-dlp)"
+                title="Browse .torrent file"
               >
-                <Search size={18} />
+                <FileUp size={18} />
               </button>
+            </div>
+          </div>
+
+          <div className={styles.inputGroup}>
+            <label>Filename (Optional)</label>
+            <div className={styles.inputWrapper}>
+              <Folder size={18} className={styles.inputIcon} />
+              <input 
+                type="text" 
+                value={filename}
+                onChange={(e) => setFilename(e.target.value)}
+                placeholder={isFetchingInfo ? "Fetching title..." : "Custom filename..."} 
+                className={styles.input}
+              />
             </div>
           </div>
 

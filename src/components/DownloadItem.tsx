@@ -1,7 +1,7 @@
 import React from 'react';
 import { DownloadTask, useDownloadStore } from '../store/downloadStore';
 import { formatBytes, formatTime } from '../utils/formatters';
-import { Play, Pause, Trash2, FileBox, Copy } from 'lucide-react';
+import { Play, Pause, Trash2, FileBox, Copy, FolderOpen, ExternalLink } from 'lucide-react';
 import styles from './DownloadItem.module.css';
 
 interface Props {
@@ -9,7 +9,7 @@ interface Props {
 }
 
 export const DownloadItem: React.FC<Props> = ({ task }) => {
-  const { pauseTask, resumeTask, removeTask } = useDownloadStore();
+  const { pauseTask, resumeTask, removeTask, downloadLocation } = useDownloadStore();
 
   const progress = task.totalBytes > 0 
     ? (task.downloadedBytes / task.totalBytes) * 100 
@@ -17,6 +17,22 @@ export const DownloadItem: React.FC<Props> = ({ task }) => {
 
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(task.url);
+  };
+
+  const handleOpenFile = async () => {
+    try {
+      const { openPath } = await import('@tauri-apps/plugin-opener');
+      const path = `${downloadLocation}\\${task.filename}`;
+      await openPath(path);
+    } catch (e) { console.error(e); }
+  };
+
+  const handleOpenFolder = async () => {
+    try {
+      const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
+      const path = `${downloadLocation}\\${task.filename}`;
+      await revealItemInDir(path);
+    } catch (e) { console.error(e); }
   };
 
   return (
@@ -43,6 +59,12 @@ export const DownloadItem: React.FC<Props> = ({ task }) => {
               <span className={styles.eta}>{formatTime(task.etaSeconds)} remaining</span>
             </>
           )}
+          {task.status === 'error' && task.errorMessage && (
+            <>
+              <span className={styles.separator}>•</span>
+              <span className={styles.errorText} style={{ color: 'var(--danger-color)', fontSize: '0.8rem' }}>{task.errorMessage}</span>
+            </>
+          )}
         </div>
 
         <div className="progress-container">
@@ -67,6 +89,15 @@ export const DownloadItem: React.FC<Props> = ({ task }) => {
           <button className="btn-icon" onClick={() => pauseTask(task.id)} title="Pause">
             <Pause size={18} />
           </button>
+        ) : task.status === 'completed' ? (
+          <>
+            <button className="btn-icon" onClick={handleOpenFile} title="Open File">
+              <ExternalLink size={18} color="var(--primary-accent)" />
+            </button>
+            <button className="btn-icon" onClick={handleOpenFolder} title="Open Folder">
+              <FolderOpen size={18} color="var(--primary-accent)" />
+            </button>
+          </>
         ) : (
           <button className="btn-icon" onClick={() => resumeTask(task.id)} title="Resume">
             <Play size={18} />

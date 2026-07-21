@@ -22,10 +22,11 @@ impl YoutubeDownloader {
         tokio::spawn(async move {
             let video = match Video::new(&url) {
                 Ok(v) => v,
-                Err(_) => {
+                Err(e) => {
                     let _ = app_handle.emit("download_progress", serde_json::json!({
                         "taskId": task_id,
                         "status": "error",
+                        "errorMessage": format!("Failed to parse YouTube URL: {}", e),
                         "totalBytes": 0,
                         "downloadedBytes": 0,
                         "speedBytesPerSec": 0
@@ -36,10 +37,11 @@ impl YoutubeDownloader {
 
             let info = match video.get_info().await {
                 Ok(i) => i,
-                Err(_) => {
+                Err(e) => {
                     let _ = app_handle.emit("download_progress", serde_json::json!({
                         "taskId": task_id,
                         "status": "error",
+                        "errorMessage": format!("Failed to fetch video info: {}", e),
                         "totalBytes": 0,
                         "downloadedBytes": 0,
                         "speedBytesPerSec": 0
@@ -72,10 +74,11 @@ impl YoutubeDownloader {
 
             let mut file = match File::create(&dest_path).await {
                 Ok(f) => f,
-                Err(_) => {
+                Err(e) => {
                     let _ = app_handle.emit("download_progress", serde_json::json!({
                         "taskId": task_id,
                         "status": "error",
+                        "errorMessage": format!("Failed to create file: {}", e),
                         "totalBytes": total_bytes,
                         "downloadedBytes": 0,
                         "speedBytesPerSec": 0
@@ -86,10 +89,11 @@ impl YoutubeDownloader {
 
             let stream = match video.stream().await {
                 Ok(s) => s,
-                Err(_) => {
+                Err(e) => {
                     let _ = app_handle.emit("download_progress", serde_json::json!({
                         "taskId": task_id,
                         "status": "error",
+                        "errorMessage": format!("Failed to get video stream: {}", e),
                         "totalBytes": total_bytes,
                         "downloadedBytes": 0,
                         "speedBytesPerSec": 0
@@ -111,10 +115,11 @@ impl YoutubeDownloader {
             }));
 
             while let Some(chunk) = stream.chunk().await.unwrap_or(None) {
-                if let Err(_) = file.write_all(&chunk).await {
+                if let Err(e) = file.write_all(&chunk).await {
                     let _ = app_handle.emit("download_progress", serde_json::json!({
                         "taskId": task_id,
                         "status": "error",
+                        "errorMessage": format!("Failed to write to file: {}", e),
                         "totalBytes": total_bytes,
                         "downloadedBytes": downloaded_bytes,
                         "speedBytesPerSec": 0

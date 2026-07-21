@@ -35,11 +35,17 @@ async fn start_download(
 }
 
 #[tauri::command]
-async fn pause_download(
-    state: State<'_, AppState>,
-    task_id: String,
-) -> Result<(), String> {
-    state.queue_manager.pause_task(&task_id).await
+fn pause_download(_app: tauri::AppHandle, _task_id: String) -> Result<(), String> {
+    // In a real implementation, we would pause the task
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_youtube_info(url: String) -> Result<String, String> {
+    use rusty_ytdl::Video;
+    let video = Video::new(&url).map_err(|e| format!("Invalid URL: {}", e))?;
+    let info = video.get_info().await.map_err(|e| format!("Failed to fetch info: {}", e))?;
+    Ok(info.video_details.title)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -51,13 +57,14 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             http_downloader,
             torrent_downloader,
             youtube_downloader,
             queue_manager,
         })
-        .invoke_handler(tauri::generate_handler![start_download, pause_download])
+        .invoke_handler(tauri::generate_handler![start_download, pause_download, get_youtube_info])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

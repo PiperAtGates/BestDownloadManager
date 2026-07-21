@@ -29,6 +29,9 @@ impl TorrentDownloader {
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|| "C:\\Downloads".to_string());
 
+        // Ensure the output folder exists before initializing the session
+        let _ = tokio::fs::create_dir_all(&output_folder).await;
+
         if session_lock.is_none() {
             let session = Session::new(output_folder.into()).await
                 .map_err(|e| format!("Failed to create librqbit session: {}", e))?;
@@ -47,14 +50,32 @@ impl TorrentDownloader {
         }));
 
         tokio::spawn(async move {
-            let add_req = AddTorrent::from_url(&magnet_link);
+            let add_req = if magnet_link.ends_with(".torrent") {
+                match tokio::fs::read(&magnet_link).await {
+                    Ok(bytes) => AddTorrent::from_bytes(bytes),
+                    Err(e) => {
+                        let _ = app_handle.emit("download_progress", serde_json::json!({
+                            "taskId": task_id,
+                            "status": "error",
+                            "errorMessage": format!("Failed to read .torrent file: {}", e),
+                            "totalBytes": 0,
+                            "downloadedBytes": 0,
+                            "speedBytesPerSec": 0
+                        }));
+                        return;
+                    }
+                }
+            } else {
+                AddTorrent::from_url(&magnet_link)
+            };
 
             let add_response = match session.add_torrent(add_req, Some(AddTorrentOptions::default())).await {
                 Ok(resp) => resp,
-                Err(_) => {
+                Err(e) => {
                     let _ = app_handle.emit("download_progress", serde_json::json!({
                         "taskId": task_id,
                         "status": "error",
+                        "errorMessage": format!("Failed to add torrent: {}", e),
                         "totalBytes": 0,
                         "downloadedBytes": 0,
                         "speedBytesPerSec": 0
