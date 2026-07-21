@@ -18,9 +18,9 @@ impl YoutubeDownloader {
         task_id: String,
         url: String,
         destination: String,
-    ) -> Result<(), String> {
-        tokio::spawn(async move {
-            let video = match Video::new(&url) {
+    ) -> Result<tokio::task::JoinHandle<()>, String> {
+        let handle = tokio::spawn(async move {
+            let mut video = match Video::new(&url) {
                 Ok(v) => v,
                 Err(e) => {
                     let _ = app_handle.emit("download_progress", serde_json::json!({
@@ -87,18 +87,40 @@ impl YoutubeDownloader {
                 }
             };
 
-            let stream = match video.stream().await {
+            let mut stream = match video.stream().await {
                 Ok(s) => s,
                 Err(e) => {
-                    let _ = app_handle.emit("download_progress", serde_json::json!({
-                        "taskId": task_id,
-                        "status": "error",
-                        "errorMessage": format!("Failed to get video stream: {}", e),
-                        "totalBytes": total_bytes,
-                        "downloadedBytes": 0,
-                        "speedBytesPerSec": 0
-                    }));
-                    return;
+                    // Fallback to video only format if default combined format is empty (common for 1080p+)
+                    let options = rusty_ytdl::VideoOptions {
+                        filter: rusty_ytdl::VideoSearchOptions::Video,
+                        ..Default::default()
+                    };
+                    if let Ok(v2) = Video::new_with_options(&url, options) {
+                        match v2.stream().await {
+                            Ok(s) => s,
+                            Err(e2) => {
+                                let _ = app_handle.emit("download_progress", serde_json::json!({
+                                    "taskId": task_id,
+                                    "status": "error",
+                                    "errorMessage": format!("Failed to get video stream after fallback: {}", e2),
+                                    "totalBytes": total_bytes,
+                                    "downloadedBytes": 0,
+                                    "speedBytesPerSec": 0
+                                }));
+                                return;
+                            }
+                        }
+                    } else {
+                        let _ = app_handle.emit("download_progress", serde_json::json!({
+                            "taskId": task_id,
+                            "status": "error",
+                            "errorMessage": format!("Failed to get video stream: {}", e),
+                            "totalBytes": total_bytes,
+                            "downloadedBytes": 0,
+                            "speedBytesPerSec": 0
+                        }));
+                        return;
+                    }
                 }
             };
 
@@ -159,6 +181,6 @@ impl YoutubeDownloader {
             }));
         });
 
-        Ok(())
+        Ok(handle)
     }
 }

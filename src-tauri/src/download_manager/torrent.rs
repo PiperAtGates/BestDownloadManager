@@ -22,7 +22,7 @@ impl TorrentDownloader {
         task_id: String,
         magnet_link: String,
         dest_path: String,
-    ) -> Result<(), String> {
+    ) -> Result<tokio::task::JoinHandle<()>, String> {
         let mut session_lock = self.session.lock().await;
 
         let output_folder = std::path::Path::new(&dest_path).parent()
@@ -49,7 +49,7 @@ impl TorrentDownloader {
             "speedBytesPerSec": 0
         }));
 
-        tokio::spawn(async move {
+        let handle_task = tokio::spawn(async move {
             let add_req = if magnet_link.ends_with(".torrent") {
                 match tokio::fs::read(&magnet_link).await {
                     Ok(bytes) => AddTorrent::from_bytes(bytes),
@@ -102,9 +102,11 @@ impl TorrentDownloader {
             loop {
                 tokio::select! {
                     _ = &mut wait_fut => {
+                        let name = handle.shared_state().info.name().unwrap_or("completed_torrent").to_string();
                         let _ = app_handle.emit("download_progress", serde_json::json!({
                             "taskId": task_id,
                             "status": "completed",
+                            "filename": name,
                             "totalBytes": 1, // Hack to just trigger 100% completion in UI
                             "downloadedBytes": 1,
                             "speedBytesPerSec": 0
@@ -124,6 +126,6 @@ impl TorrentDownloader {
             }
         });
 
-        Ok(())
+        Ok(handle_task)
     }
 }

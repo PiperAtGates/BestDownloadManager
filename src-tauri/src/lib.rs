@@ -9,12 +9,14 @@ use download_manager::http::HttpDownloader;
 use download_manager::queue::QueueManager;
 use download_manager::torrent::TorrentDownloader;
 use download_manager::youtube::YoutubeDownloader;
+use std::collections::HashMap;
 
 struct AppState {
     http_downloader: HttpDownloader,
     torrent_downloader: TorrentDownloader,
     youtube_downloader: YoutubeDownloader,
     queue_manager: Arc<QueueManager>,
+    cancel_map: Arc<tokio::sync::Mutex<HashMap<String, tokio::task::JoinHandle<()>>>>,
 }
 
 #[tauri::command]
@@ -25,18 +27,23 @@ async fn start_download(
     url: String,
     destination: String,
 ) -> Result<(), String> {
-    if url.starts_with("magnet:") {
-        state.torrent_downloader.start_torrent(app, task_id, url, destination).await
+    let handle = if url.starts_with("magnet:") || url.ends_with(".torrent") {
+        state.torrent_downloader.start_torrent(app, task_id.clone(), url, destination).await?
     } else if url.contains("youtube.com") || url.contains("youtu.be") {
-        state.youtube_downloader.start_download(app, task_id, url, destination).await
+        state.youtube_downloader.start_download(app, task_id.clone(), url, destination).await?
     } else {
-        state.http_downloader.start_download(app, task_id, url, destination).await
-    }
+        state.http_downloader.start_download(app, task_id.clone(), url, destination).await?
+    };
+
+    state.cancel_map.lock().await.insert(task_id, handle);
+    Ok(())
 }
 
 #[tauri::command]
-fn pause_download(_app: tauri::AppHandle, _task_id: String) -> Result<(), String> {
-    // In a real implementation, we would pause the task
+async fn pause_download(state: State<'_, AppState>, _app: tauri::AppHandle, task_id: String) -> Result<(), String> {
+    if let Some(handle) = state.cancel_map.lock().await.remove(&task_id) {
+        handle.abort();
+    }
     Ok(())
 }
 
@@ -54,6 +61,7 @@ pub fn run() {
     let torrent_downloader = TorrentDownloader::new();
     let youtube_downloader = YoutubeDownloader::new();
     let queue_manager = Arc::new(QueueManager::new());
+    let cancel_map = Arc::new(tokio::sync::Mutex::new(HashMap::new()));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -63,6 +71,7 @@ pub fn run() {
             torrent_downloader,
             youtube_downloader,
             queue_manager,
+            cancel_map,
         })
         .invoke_handler(tauri::generate_handler![start_download, pause_download, get_youtube_info])
         .run(tauri::generate_context!())

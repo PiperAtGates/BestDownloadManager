@@ -27,11 +27,11 @@ impl HttpDownloader {
         task_id: String, 
         url: String, 
         destination: String
-    ) -> Result<(), String> {
+    ) -> Result<tokio::task::JoinHandle<()>, String> {
         let client = self.client.clone();
 
         // Spawn as a tokio task so we don't block the Tauri command handler
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             let res = match client.get(&url).send().await {
                 Ok(r) => r,
                 Err(_) => {
@@ -130,6 +130,6 @@ impl HttpDownloader {
             }));
         });
 
-        Ok(())
+        Ok(handle)
     }
 }

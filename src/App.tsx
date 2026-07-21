@@ -7,15 +7,17 @@ function App() {
   useEffect(() => {
     const setupListener = async () => {
       const unlisten = await listen('download_progress', (event: any) => {
-        const { taskId, totalBytes, downloadedBytes, speedBytesPerSec, status, errorMessage } = event.payload;
-        useDownloadStore.getState().updateTask(taskId, {
+        const { taskId, totalBytes, downloadedBytes, speedBytesPerSec, status, errorMessage, filename } = event.payload;
+        const updates: any = {
           totalBytes,
           downloadedBytes,
           speedBytesPerSec,
           status,
           errorMessage,
           etaSeconds: speedBytesPerSec > 0 ? (totalBytes - downloadedBytes) / speedBytesPerSec : 0
-        });
+        };
+        if (filename) updates.filename = filename;
+        useDownloadStore.getState().updateTask(taskId, updates);
       });
       return unlisten;
     };
