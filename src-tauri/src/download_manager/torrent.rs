@@ -69,7 +69,10 @@ impl TorrentDownloader {
                 AddTorrent::from_url(&magnet_link)
             };
 
-            let add_response = match session.add_torrent(add_req, Some(AddTorrentOptions::default())).await {
+            let add_response = match session.add_torrent(add_req, Some(AddTorrentOptions {
+                overwrite: true,
+                ..Default::default()
+            })).await {
                 Ok(resp) => resp,
                 Err(e) => {
                     let _ = app_handle.emit("download_progress", serde_json::json!({

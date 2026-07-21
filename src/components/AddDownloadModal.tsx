@@ -19,6 +19,10 @@ export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
+  const sanitizeFilename = (name: string) => {
+    return name.replace(/[<>:"/\\|?*]/g, '_');
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!url.trim()) return;
@@ -29,6 +33,7 @@ export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
       if (finalFilename.includes('?')) finalFilename = finalFilename.split('?')[0];
       if (!finalFilename) finalFilename = 'unknown_file';
     }
+    finalFilename = sanitizeFilename(finalFilename);
 
     addTask({
       id: crypto.randomUUID(),
@@ -74,7 +79,7 @@ export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
       setIsFetchingInfo(true);
       invoke<string>('get_youtube_info', { url: newUrl })
         .then((title) => {
-          setFilename(title);
+          setFilename(sanitizeFilename(title));
         })
         .catch((e) => console.error(e))
         .finally(() => setIsFetchingInfo(false));
