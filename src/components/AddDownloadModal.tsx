@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Link, Folder, Search, FileUp } from 'lucide-react';
+import { X, Link, Folder, FileUp } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useDownloadStore } from '../store/downloadStore';
@@ -41,6 +41,7 @@ export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
       category,
       etaSeconds: 0,
       createdAt: Date.now(),
+      progress: 0,
     });
 
     setUrl('');
