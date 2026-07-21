@@ -84,7 +84,7 @@ impl YoutubeDownloader {
                 }
             };
 
-            let mut stream = match video.stream().await {
+            let stream = match video.stream().await {
                 Ok(s) => s,
                 Err(_) => {
                     let _ = app_handle.emit("download_progress", serde_json::json!({

@@ -3,7 +3,6 @@ pub mod database;
 pub mod native_messaging;
 
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use tauri::State;
 
 use download_manager::http::HttpDownloader;

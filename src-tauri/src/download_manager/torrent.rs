@@ -32,7 +32,7 @@ impl TorrentDownloader {
         if session_lock.is_none() {
             let session = Session::new(output_folder.into()).await
                 .map_err(|e| format!("Failed to create librqbit session: {}", e))?;
-            *session_lock = Some(Arc::new(session));
+            *session_lock = Some(session);
         }
         
         let session = session_lock.as_ref().unwrap().clone();
@@ -47,19 +47,7 @@ impl TorrentDownloader {
         }));
 
         tokio::spawn(async move {
-            let add_req = match AddTorrent::from_url(&magnet_link) {
-                Ok(req) => req,
-                Err(e) => {
-                    let _ = app_handle.emit("download_progress", serde_json::json!({
-                        "taskId": task_id,
-                        "status": "error",
-                        "totalBytes": 0,
-                        "downloadedBytes": 0,
-                        "speedBytesPerSec": 0
-                    }));
-                    return;
-                }
-            };
+            let add_req = AddTorrent::from_url(&magnet_link);
 
             let add_response = match session.add_torrent(add_req, Some(AddTorrentOptions::default())).await {
                 Ok(resp) => resp,
@@ -83,33 +71,32 @@ impl TorrentDownloader {
                 }
             };
 
+            let wait_fut = handle.wait_until_completed();
+            tokio::pin!(wait_fut);
+
             // Polling loop for live stats
             loop {
-                // Sleep for 500ms
-                tokio::time::sleep(Duration::from_millis(500)).await;
-
-                // Wait until completion
-                if handle.is_finished() {
-                    let _ = app_handle.emit("download_progress", serde_json::json!({
-                        "taskId": task_id,
-                        "status": "completed",
-                        "totalBytes": 1, // Hack to just trigger 100% completion in UI
-                        "downloadedBytes": 1,
-                        "speedBytesPerSec": 0
-                    }));
-                    break;
+                tokio::select! {
+                    _ = &mut wait_fut => {
+                        let _ = app_handle.emit("download_progress", serde_json::json!({
+                            "taskId": task_id,
+                            "status": "completed",
+                            "totalBytes": 1, // Hack to just trigger 100% completion in UI
+                            "downloadedBytes": 1,
+                            "speedBytesPerSec": 0
+                        }));
+                        break;
+                    }
+                    _ = tokio::time::sleep(Duration::from_millis(500)) => {
+                        let _ = app_handle.emit("download_progress", serde_json::json!({
+                            "taskId": task_id,
+                            "status": "downloading",
+                            "totalBytes": 100, // Placeholder
+                            "downloadedBytes": 10, // Placeholder
+                            "speedBytesPerSec": 500000 // Placeholder 500KB/s
+                        }));
+                    }
                 }
-
-                // If rqbit provides stats, we can read them, but for now we poll
-                // since the API is dynamic, we just send a "downloading" tick
-                // In a perfect world, we read handle.live_stats()
-                let _ = app_handle.emit("download_progress", serde_json::json!({
-                    "taskId": task_id,
-                    "status": "downloading",
-                    "totalBytes": 100, // Placeholder
-                    "downloadedBytes": 10, // Placeholder
-                    "speedBytesPerSec": 500000 // Placeholder 500KB/s
-                }));
             }
         });
 

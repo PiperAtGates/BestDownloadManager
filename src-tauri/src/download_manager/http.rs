@@ -1,6 +1,4 @@
 use reqwest::Client;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use tauri::Emitter;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
@@ -36,7 +34,7 @@ impl HttpDownloader {
         tokio::spawn(async move {
             let res = match client.get(&url).send().await {
                 Ok(r) => r,
-                Err(e) => {
+                Err(_) => {
                     let _ = app_handle.emit("download_progress", serde_json::json!({
                         "taskId": task_id,
                         "status": "error",
