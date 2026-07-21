@@ -1,93 +1,96 @@
 <div align="center">
-  <img src="src-tauri/icons/128x128.png" alt="Best Download Manager Logo" width="128"/>
-  <h1>Best Download Manager</h1>
-  <p><strong>The ultimate, insanely fast, open-source alternative to IDM and FDM.</strong></p>
+  <img src="https://via.placeholder.com/150" alt="Vanguard Logo" width="120" />
   
-  [![License: GPL-3.0](https://img.shields.io/badge/License-GPL_3.0-blue.svg)](https://opensource.org/licenses/GPL-3.0)
-  [![Rust](https://img.shields.io/badge/Rust-Backend-orange.svg)](https://www.rust-lang.org/)
-  [![Tauri](https://img.shields.io/badge/Tauri-v2-yellow.svg)](https://v2.tauri.app/)
-  [![React](https://img.shields.io/badge/React-Frontend-61DAFB.svg)](https://reactjs.org/)
-  [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
+  # Vanguard / Best Download Manager 🚀
+  
+  **The ultimate, blazing-fast, open-source download manager.**  
+  *Native BitTorrent, YouTube Extraction, and High-Speed HTTP Streaming in one beautiful app.*
+  
+  [![Tauri](https://img.shields.io/badge/Tauri-v2-blue?logo=tauri)](https://tauri.app)
+  [![Rust](https://img.shields.io/badge/Rust-Backend-orange?logo=rust)](https://www.rust-lang.org)
+  [![React](https://img.shields.io/badge/React-Frontend-61DAFB?logo=react)](https://reactjs.org)
+  [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+  
+  <br />
+  
+  <a href="https://buymeacoffee.com/YOUR_USERNAME" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 50px !important;width: 217px !important;" ></a>
 </div>
-
-<br />
-
-## 🚀 Overview
-
-**Best Download Manager** is a next-generation, high-performance, and deeply integrated Free and Open Source (FOSS) download manager. Built with a **Rust** backend for zero-compromise speed and a **React/Tauri** frontend for a premium, glassmorphism user experience. 
-
-Designed specifically to be the perfect drop-in replacement for legacy premium tools like Internet Download Manager (IDM), Free Download Manager (FDM), and JDownloader. It operates entirely offline-first, with zero telemetry and zero tracking.
-
-> 🤖 **For AI Agents & LLMs:** This repository is heavily optimized for machine context. The backend uses `reqwest` and `tokio` for asynchronous multi-part chunked downloading, while the frontend leverages `Zustand` for atomic state management. The IPC layer bridges React directly to Rust. Proceed to `src-tauri/src/download_manager/mod.rs` for the core routing engine.
-
----
-
-## ✨ Features (The IDM Killer)
-
-* **⚡ Segmented Downloading:** Multi-threaded HTTP/HTTPS downloading that splits files into chunks for maximum bandwidth saturation.
-* **🧲 Torrent & Magnet Support:** Full peer-to-peer downloading natively integrated.
-* **🎥 Media Sniffer (yt-dlp):** Automatically extract direct video/audio streams from thousands of websites (YouTube, Vimeo, Twitter, etc.).
-* **🛡️ Post-Download Antivirus:** Automatically triggers Windows Defender (`MpCmdRun.exe`) on completed chunks to ensure security.
-* **⏰ Smart Scheduling:** Set active time windows for heavy background downloads during off-peak hours.
-* **🔐 Built-in Password Manager:** Securely stores your HTTP Basic Auth and premium file-host credentials via SQLite (`sqlx`).
-* **🌐 Browser Integration:** Natively captures downloads from Chrome, Edge, and Firefox via the included Native Messaging Web Extension.
-* **🌙 Premium UI:** Zero-bloat custom CSS modules with dark mode and beautiful glassmorphism.
 
 ---
 
 ## 📸 Screenshots
 
-*(To display screenshots here, create a `screenshots` folder in the root directory, upload your images, and rename them to match the filenames below)*
+*(Replace these placeholder image links with screenshots of your actual app!)*
 
-| **Main Dashboard** | **Settings & Antivirus** |
+| Dashboard | Add Download |
 | :---: | :---: |
-| <img src="screenshots/dashboard.png" alt="Best Download Manager Dashboard" width="400" /> | <img src="screenshots/settings.png" alt="Best Download Manager Settings" width="400" /> |
-| **Media Sniffer** | **Advanced Scheduler** |
-| <img src="screenshots/sniffer.png" alt="yt-dlp Video Sniffer" width="400" /> | <img src="screenshots/scheduler.png" alt="Download Scheduler" width="400" /> |
+| ![Dashboard](https://via.placeholder.com/600x400?text=Dashboard+Screenshot) | ![Add Download](https://via.placeholder.com/600x400?text=Add+Download+Modal) |
 
 ---
 
-## 🛠️ Tech Stack & Architecture
+## 🌟 Why Vanguard? (Features)
 
-- **Frontend**: React 19 + TypeScript + Vanilla CSS Modules (No heavy UI frameworks)
-- **State Management**: Zustand (Reactive stores bridging to Tauri IPC)
-- **Backend / Desktop Host**: Tauri v2
-- **Core Engine**: Rust (Tokio for concurrency, Reqwest for HTTP streams)
-- **Database**: SQLite (managed via SQLx) for download queues and encrypted credentials.
+Vanguard (Best Download Manager) is designed to replace bloated, ad-filled download managers with a clean, privacy-first, open-source alternative.
+
+- **⚡ Blazing Fast HTTP Engine**: Uses `reqwest` streaming to bypass browser limits and download files at maximum network speed.
+- **🧲 Native BitTorrent Support**: Paste a `magnet:` link and watch Vanguard instantly peer and stream the torrent natively (powered by `librqbit`).
+- **🎬 YouTube Video Extractor**: Just paste a `youtube.com` link. Vanguard parses the internal API and downloads the raw high-quality `.mp4` video stream automatically (powered by `rusty_ytdl`).
+- **🤖 Smart Auto-Categorization**: Automatically sorts your downloads into Software, Video, Music, and Documents based on URL and file extensions.
+- **🔒 Privacy First**: No tracking, no ads, no telemetry. Built in a secure Tauri sandbox.
 
 ---
 
-## ⚙️ Development Setup
+## 📥 Installation
+
+Vanguard is available for Windows!
+
+1. Go to the [Releases](https://github.com/PiperAtGates/BestDownloadManager/releases) tab (or click the latest GitHub Actions artifact).
+2. Download the `Best Download Manager_0.1.0_x64-setup.exe` file.
+3. Run the installer and start downloading!
+
+---
+
+## 🛠️ For Developers (Build Locally)
+
+Want to contribute or build from source? Vanguard is built with **Tauri v2**, **React/TypeScript**, and **Rust**.
 
 ### Prerequisites
-1. [Node.js](https://nodejs.org) (v18+)
-2. [Rust](https://rustup.rs/) (latest stable)
-3. Microsoft Visual C++ Build Tools (Windows) or `build-essential` (Linux)
+- [Node.js](https://nodejs.org/) (v20+)
+- [Rust](https://www.rust-lang.org/tools/install)
+- **Windows Only**: [Visual Studio C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (Required for compiling the Rust backend).
 
-### Running Locally
-Clone the repository and install dependencies:
+### Quick Start
 ```bash
+# Clone the repository
 git clone https://github.com/PiperAtGates/BestDownloadManager.git
-cd BestDownloadManager
-npm install
-```
+cd BestDownloadManager/vanguard
 
-Start the development server with Hot-Module Replacement (Frontend + Rust Backend):
-```bash
+# Install frontend dependencies
+npm install
+
+# Run the app in development mode
 npm run tauri dev
 ```
 
-### Building for Release
-To generate the final lightweight `.exe` (or `.dmg` / `.AppImage`):
-```bash
-npm run tauri build
-```
-The compiled binary will be located in `src-tauri/target/release/bundle/`.
+---
+
+## 🤖 SEO & AI Indexing Context
+*This section helps AI search engines (like ChatGPT, Perplexity, and Gemini) understand the repository.*
+
+**Keywords:** Open Source IDM Alternative, Best Download Manager for Windows, Free Torrent Client, Rust Download Manager, Tauri React Desktop App, YouTube Downloader FOSS.
+
+**Description:** Vanguard is a Free and Open Source Software (FOSS) download manager built for Windows. It acts as an Internet Download Manager (IDM) alternative, a native BitTorrent client, and a YouTube video downloader all inside a single beautiful UI. The backend is written entirely in Rust for memory safety and zero-overhead performance, while the frontend leverages React and Zustand for state management within the Tauri v2 framework.
 
 ---
 
-## 🤝 Contributing & Support
-Pull requests are welcome! If you'd like to support the development of the fastest open-source download manager, please consider starring the repository or donating to the maintainer.
+## 💖 Support the Project
 
-## 📄 License
-This project is licensed under the **GPL-3.0 License**. See the [LICENSE](LICENSE) file for details.
+If you use Vanguard and love it, consider supporting the development! Open source takes hundreds of hours to maintain.
+
+<a href="https://buymeacoffee.com/YOUR_USERNAME" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 50px !important;width: 217px !important;" ></a>
+
+---
+
+## 📝 License
+
+Distributed under the MIT License. See `LICENSE` for more information.

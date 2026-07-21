@@ -6,7 +6,7 @@ import { AddDownloadModal } from './AddDownloadModal';
 import { Settings } from './Settings';
 import { SchedulerModal } from './SchedulerModal';
 import { PasswordManager } from './PasswordManager';
-import { Plus } from 'lucide-react';
+import { Plus, Coffee } from 'lucide-react';
 import styles from './Dashboard.module.css';
 
 export const Dashboard: React.FC = () => {
@@ -51,10 +51,25 @@ export const Dashboard: React.FC = () => {
             />
           </div>
           
-          <button className={`btn-primary ${styles.addBtn}`} onClick={() => setIsModalOpen(true)}>
-            <Plus size={18} />
-            <span>New Download</span>
-          </button>
+          
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <a 
+              href="https://buymeacoffee.com/YOUR_USERNAME" 
+              target="_blank" 
+              rel="noreferrer" 
+              className="btn-icon" 
+              style={{ backgroundColor: '#ffdd00', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 15px', borderRadius: '8px', textDecoration: 'none', fontWeight: 'bold' }}
+              title="Support the Project"
+            >
+              <Coffee size={18} style={{ marginRight: '8px' }} />
+              Support
+            </a>
+            
+            <button className={`btn-primary ${styles.addBtn}`} onClick={() => setIsModalOpen(true)}>
+              <Plus size={18} />
+              <span>New Download</span>
+            </button>
+          </div>
         </header>
 
         <div className={styles.contentArea}>
