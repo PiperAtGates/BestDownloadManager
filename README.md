@@ -1,6 +1,6 @@
 # Vanguard / Best Download Manager
 
-A Windows download manager that handles HTTP downloads, BitTorrent magnet links, and YouTube videos. Ships with yt-dlp and ffmpeg bundled — no extra setup needed.
+A Windows download manager that handles HTTP downloads, BitTorrent magnet links, and YouTube videos. Ships with yt-dlp bundled — no extra setup needed.
 
 [![Build](https://github.com/PiperAtGates/BestDownloadManager/actions/workflows/build.yml/badge.svg)](https://github.com/PiperAtGates/BestDownloadManager/actions/workflows/build.yml)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-blue?logo=tauri)](https://tauri.app)
@@ -11,7 +11,7 @@ A Windows download manager that handles HTTP downloads, BitTorrent magnet links,
 
 - **HTTP downloads** — multi-threaded, resume support
 - **BitTorrent** — magnet link support via librqbit
-- **YouTube** — video downloads via built-in yt-dlp, with ffmpeg for high-quality muxing
+- **YouTube** — video downloads via built-in yt-dlp (install [ffmpeg](https://ffmpeg.org/) on PATH for best-quality merge)
 - **Download queue** — pause, resume, cancel, prioritize
 - **Scheduler** — set downloads to run at specific times
 - **Browser extension companion** — basic native messaging support
@@ -35,7 +35,7 @@ npm run tauri build   # production build
 
 Frontend: React, TypeScript, Zustand, Vite  
 Backend: Rust, Tauri v2  
-Downloads: reqwest (HTTP), librqbit (BitTorrent), yt-dlp (YouTube), ffmpeg (muxing)
+Downloads: reqwest (HTTP), librqbit (BitTorrent), yt-dlp (YouTube)
 
 ## License
 
