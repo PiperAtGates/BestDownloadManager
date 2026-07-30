@@ -9,9 +9,10 @@ import styles from './AddDownloadModal.module.css';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  prefilledUrl?: string;
 }
 
-export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
+export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose, prefilledUrl }) => {
   const [url, setUrl] = useState('');
   const [filename, setFilename] = useState('');
   const [category, setCategory] = useState('Software');
@@ -37,7 +38,9 @@ export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
         setCategory('Music');
       } else if (lowerUrl.endsWith('.pdf') || lowerUrl.endsWith('.doc') || lowerUrl.endsWith('.docx') || lowerUrl.endsWith('.txt')) {
         setCategory('Documents');
-      } else if (lowerUrl.endsWith('.zip') || lowerUrl.endsWith('.rar') || lowerUrl.endsWith('.7z') || lowerUrl.endsWith('.iso') || lowerUrl.endsWith('.exe')) {
+      } else if (lowerUrl.endsWith('.zip') || lowerUrl.endsWith('.rar') || lowerUrl.endsWith('.7z') || lowerUrl.endsWith('.tar') || lowerUrl.endsWith('.gz')) {
+        setCategory('Archives');
+      } else if (lowerUrl.endsWith('.iso') || lowerUrl.endsWith('.exe') || lowerUrl.endsWith('.msi') || lowerUrl.endsWith('.apk')) {
         setCategory('Software');
       }
     }
@@ -55,6 +58,11 @@ export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (isOpen) {
+      // If opened with a pre-filled URL from the clipboard popup, use it directly
+      if (prefilledUrl) {
+        processUrl(prefilledUrl);
+        return;
+      }
       readText().then((text) => {
         if (text) {
           const trimmed = text.trim();
@@ -64,7 +72,7 @@ export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
         }
       }).catch(console.error);
     }
-  }, [isOpen]);
+  }, [isOpen, prefilledUrl]);
 
   if (!isOpen) return null;
 
@@ -184,6 +192,7 @@ export const AddDownloadModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 <option value="Video">Video</option>
                 <option value="Music">Music</option>
                 <option value="Documents">Documents</option>
+                <option value="Archives">Archives</option>
                 <option value="Other">Other</option>
               </select>
             </div>

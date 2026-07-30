@@ -19,6 +19,11 @@ export interface DownloadTask {
   progress: number;
 }
 
+export interface SpeedPoint {
+  timestamp: number;
+  speedBytesPerSec: number;
+}
+
 interface DownloadStore {
   tasks: DownloadTask[];
   addTask: (task: DownloadTask) => void;
@@ -32,22 +37,42 @@ interface DownloadStore {
   setDownloadLocation: (path: string) => void;
   maxConcurrent: number;
   setMaxConcurrent: (n: number) => void;
+  // Speed limiter (0 = unlimited, stored in bytes/sec)
+  speedLimitBps: number;
+  setSpeedLimitBps: (bps: number) => void;
+  // Clipboard monitoring toggle
+  clipboardMonitor: boolean;
+  setClipboardMonitor: (val: boolean) => void;
+  // Rolling speed history for the graph (not persisted, last 60s)
+  speedHistory: SpeedPoint[];
+  recordSpeedSnapshot: () => void;
 }
 
-const getDestinationPath = (dir: string, filename: string) => {
+const CATEGORY_FOLDERS: Record<string, string> = {
+  Videos: 'Videos',
+  Video: 'Videos',
+  Music: 'Music',
+  Software: 'Software',
+  Documents: 'Documents',
+  Archives: 'Archives',
+  Other: 'Other',
+};
+
+export const getDestinationPath = (dir: string, filename: string, category: string) => {
   const cleanDir = dir.replace(/[/\\]+$/, '');
-  return `${cleanDir}\\${filename}`;
+  const folder = CATEGORY_FOLDERS[category] ?? 'Other';
+  return `${cleanDir}\\${folder}\\${filename}`;
 };
 
 const isBackendAvailable = () => {
-  // invoke() throws immediately (no Tauri IPC bridge) when running in a plain
-  // browser tab instead of the Tauri webview. Used to give a clearer message.
   try {
     return !!window && '__TAURI_INTERNALS__' in window;
   } catch {
     return false;
   }
 };
+
+const SPEED_HISTORY_WINDOW_MS = 60_000;
 
 export const useDownloadStore = create<DownloadStore>()(
   persist(
@@ -57,7 +82,7 @@ export const useDownloadStore = create<DownloadStore>()(
         invoke('start_download', {
           taskId: task.id,
           url: task.url,
-          destination: getDestinationPath(get().downloadLocation, task.filename),
+          destination: getDestinationPath(get().downloadLocation, task.filename, task.category),
         }).catch((err) => {
           console.error(err);
           if (!isBackendAvailable()) {
@@ -75,8 +100,6 @@ export const useDownloadStore = create<DownloadStore>()(
           tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
         })),
       removeTask: (id) => {
-        // Only ask the backend to cancel the download if it's still active —
-        // pausing a completed/errored task would just warn in the console.
         const task = get().tasks.find((t) => t.id === id);
         const active =
           task &&
@@ -112,6 +135,7 @@ export const useDownloadStore = create<DownloadStore>()(
               destination: getDestinationPath(
                 get().downloadLocation,
                 task.filename,
+                task.category,
               ),
             }).catch((err) => {
               console.error(err);
@@ -142,15 +166,45 @@ export const useDownloadStore = create<DownloadStore>()(
           console.error('Failed to set max concurrent downloads:', err),
         );
       },
+      speedLimitBps: 0,
+      setSpeedLimitBps: (bps) => {
+        const val = Math.max(0, Math.floor(bps));
+        set({ speedLimitBps: val });
+        invoke('set_speed_limit', { bytesPerSec: val }).catch((err) =>
+          console.error('Failed to set speed limit:', err),
+        );
+      },
+      clipboardMonitor: false,
+      setClipboardMonitor: (val) => {
+        set({ clipboardMonitor: val });
+        invoke('set_clipboard_monitoring', { enabled: val }).catch((err) =>
+          console.error('Failed to toggle clipboard monitoring:', err),
+        );
+      },
+      speedHistory: [],
+      recordSpeedSnapshot: () =>
+        set((state) => {
+          const now = Date.now();
+          const totalSpeed = state.tasks
+            .filter((t) => t.status === 'downloading')
+            .reduce((sum, t) => sum + t.speedBytesPerSec, 0);
+          const point: SpeedPoint = { timestamp: now, speedBytesPerSec: totalSpeed };
+          const cutoff = now - SPEED_HISTORY_WINDOW_MS;
+          const pruned = state.speedHistory
+            .filter((p) => p.timestamp > cutoff)
+            .concat(point);
+          return { speedHistory: pruned };
+        }),
     }),
     {
       name: 'vanguard-settings',
       storage: createJSONStorage(() => localStorage),
-      // Persist only the durable settings — never the live task list.
       partialize: (s) => ({
         autoCategorize: s.autoCategorize,
         downloadLocation: s.downloadLocation,
         maxConcurrent: s.maxConcurrent,
+        speedLimitBps: s.speedLimitBps,
+        clipboardMonitor: s.clipboardMonitor,
       }),
     },
   ),

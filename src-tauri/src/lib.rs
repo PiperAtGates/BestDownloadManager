@@ -3,8 +3,10 @@ pub mod download_manager;
 pub mod native_messaging;
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{Emitter, State};
+use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
 use download_manager::http::HttpDownloader;
@@ -18,6 +20,10 @@ struct AppState {
     youtube_downloader: YoutubeDownloader,
     queue_manager: Arc<QueueManager>,
     cancel_map: Arc<tokio::sync::Mutex<HashMap<String, CancellationToken>>>,
+    /// Global download speed cap in bytes/sec. 0 = unlimited.
+    speed_limit: Arc<RwLock<u64>>,
+    /// Toggle for clipboard URL monitoring.
+    clipboard_monitoring: Arc<AtomicBool>,
 }
 
 #[tauri::command]
@@ -35,6 +41,8 @@ async fn start_download(
         .await
         .insert(task_id.clone(), token.clone());
 
+    let speed_limit = state.speed_limit.clone();
+
     // A `.torrent` is only treated as a torrent when it's a local file on disk;
     // a remote URL ending in `.torrent` is downloaded as a file via HTTP.
     let is_local_torrent =
@@ -48,12 +56,12 @@ async fn start_download(
     } else if url.contains("youtube.com") || url.contains("youtu.be") {
         state
             .youtube_downloader
-            .start_download(app.clone(), task_id.clone(), url, destination, token)
+            .start_download(app.clone(), task_id.clone(), url, destination, token, speed_limit)
             .await
     } else {
         state
             .http_downloader
-            .start_download(app.clone(), task_id.clone(), url, destination, token)
+            .start_download(app.clone(), task_id.clone(), url, destination, token, speed_limit)
             .await
     };
 
@@ -80,12 +88,9 @@ async fn pause_download(
     _app: tauri::AppHandle,
     task_id: String,
 ) -> Result<(), String> {
-    // Signal the running task to stop; it flushes its partial file and emits a
-    // "paused" event itself.
     if let Some(token) = state.cancel_map.lock().await.remove(&task_id) {
         token.cancel();
     }
-    // Also brief librqbit to pause piece fetching immediately.
     let _ = state.torrent_downloader.pause_torrent(&task_id).await;
     Ok(())
 }
@@ -95,9 +100,6 @@ async fn get_youtube_info(
     app: tauri::AppHandle,
     url: String,
 ) -> Result<String, String> {
-    // Fetch the title via yt-dlp (matches the download engine, so the filename
-    // previewed in Add Download matches what actually gets saved). Uses the
-    // bundled binary when present, PATH otherwise.
     let yt_bin = download_manager::resolve_external(&app, "yt-dlp");
     let output = tokio::process::Command::new(&yt_bin)
         .args(["--no-playlist", "--print", "title", &url])
@@ -124,6 +126,21 @@ async fn set_max_concurrent(state: State<'_, AppState>, n: usize) -> Result<(), 
         return Err("Max concurrent downloads must be at least 1".to_string());
     }
     state.queue_manager.set_max(n);
+    Ok(())
+}
+
+#[tauri::command]
+async fn set_speed_limit(state: State<'_, AppState>, bytes_per_sec: u64) -> Result<(), String> {
+    *state.speed_limit.write().await = bytes_per_sec;
+    Ok(())
+}
+
+#[tauri::command]
+async fn set_clipboard_monitoring(
+    state: State<'_, AppState>,
+    enabled: bool,
+) -> Result<(), String> {
+    state.clipboard_monitoring.store(enabled, Ordering::Relaxed);
     Ok(())
 }
 
@@ -189,14 +206,67 @@ fn set_default_torrent_client() -> Result<(), String> {
     Ok(())
 }
 
+/// Spawn a background task that polls the clipboard every 1.5 seconds and emits
+/// `clipboard_url_detected` when a new URL-like value is copied.
+fn start_clipboard_monitor(app: tauri::AppHandle, enabled: Arc<AtomicBool>) {
+    std::thread::spawn(move || {
+        let mut clipboard = match arboard::Clipboard::new() {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("[Clipboard Monitor] Failed to open clipboard: {}", e);
+                return;
+            }
+        };
+        let mut last_seen = String::new();
+
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(1500));
+
+            if !enabled.load(Ordering::Relaxed) {
+                last_seen.clear();
+                continue;
+            }
+
+            let text = match clipboard.get_text() {
+                Ok(t) => t,
+                Err(_) => continue,
+            };
+
+            let trimmed = text.trim().to_string();
+            if trimmed == last_seen || trimmed.is_empty() {
+                continue;
+            }
+
+            // Only emit for URL-like content
+            let is_url = trimmed.starts_with("http://")
+                || trimmed.starts_with("https://")
+                || trimmed.starts_with("ftp://")
+                || trimmed.starts_with("magnet:");
+
+            if is_url {
+                last_seen = trimmed.clone();
+                let _ = app.emit(
+                    "clipboard_url_detected",
+                    serde_json::json!({ "url": trimmed }),
+                );
+            } else {
+                // Still advance last_seen so we don't re-detect the same non-URL text
+                last_seen = trimmed;
+            }
+        }
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let queue_manager = Arc::new(QueueManager::new(5));
     let permits = queue_manager.permits();
+    let speed_limit = Arc::new(RwLock::new(0u64));
+    let clipboard_monitoring = Arc::new(AtomicBool::new(false));
 
-    let http_downloader = HttpDownloader::new(permits.clone());
+    let http_downloader = HttpDownloader::new(permits.clone(), speed_limit.clone());
     let torrent_downloader = TorrentDownloader::new(permits.clone());
-    let youtube_downloader = YoutubeDownloader::new(permits.clone());
+    let youtube_downloader = YoutubeDownloader::new(permits.clone(), speed_limit.clone());
     let cancel_map = Arc::new(tokio::sync::Mutex::new(HashMap::new()));
     let logs = Arc::new(tokio::sync::Mutex::new(Vec::new()));
 
@@ -210,12 +280,15 @@ pub fn run() {
                 let _ = window.show();
                 let _ = window.center();
             }
-            // Only start the Chrome native-messaging stdin listener when the app
-            // was launched by the browser extension (which sets this env var),
-            // so it never eats dev-console stdin.
             if std::env::var_os("VANGUARD_NATIVE_MESSAGING").is_some() {
                 native_messaging::start_native_messaging_listener(app.handle().clone());
             }
+            // Start clipboard monitor (disabled by default; frontend toggles it)
+            let clip_enabled = app
+                .state::<AppState>()
+                .clipboard_monitoring
+                .clone();
+            start_clipboard_monitor(app.handle().clone(), clip_enabled);
             Ok(())
         })
         .manage(AppState {
@@ -224,6 +297,8 @@ pub fn run() {
             youtube_downloader,
             queue_manager,
             cancel_map,
+            speed_limit,
+            clipboard_monitoring,
         })
         .manage(LogState { logs })
         .invoke_handler(tauri::generate_handler![
@@ -233,6 +308,8 @@ pub fn run() {
             get_logs,
             set_default_torrent_client,
             set_max_concurrent,
+            set_speed_limit,
+            set_clipboard_monitoring,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

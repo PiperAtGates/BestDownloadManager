@@ -24,6 +24,7 @@ export const Sidebar: React.FC<Props> = ({ activeFilter, setActiveFilter, onOpen
     { id: 'video', label: 'Video' },
     { id: 'music', label: 'Music' },
     { id: 'documents', label: 'Documents' },
+    { id: 'archives', label: 'Archives' },
   ];
 
   return (

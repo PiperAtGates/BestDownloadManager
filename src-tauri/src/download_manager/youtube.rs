@@ -10,10 +10,12 @@
 //! Muxing bestvideo+bestaudio also needs `ffmpeg` on PATH; if it's absent yt-dlp
 //! falls back to a pre-merged single stream, so downloads still work.
 use std::process::Stdio;
+use std::sync::Arc;
 use std::time::Instant;
 use tauri::{Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
+use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
 use super::queue::Permits;
@@ -21,11 +23,12 @@ use super::queue::Permits;
 #[derive(Clone)]
 pub struct YoutubeDownloader {
     permits: Permits,
+    speed_limit: Arc<RwLock<u64>>,
 }
 
 impl YoutubeDownloader {
-    pub fn new(permits: Permits) -> Self {
-        Self { permits }
+    pub fn new(permits: Permits, speed_limit: Arc<RwLock<u64>>) -> Self {
+        Self { permits, speed_limit }
     }
 
     pub async fn start_download(
@@ -35,6 +38,7 @@ impl YoutubeDownloader {
         url: String,
         destination: String,
         token: CancellationToken,
+        speed_limit: Arc<RwLock<u64>>,
     ) -> Result<(), String> {
         let sem = self.permits.read().unwrap().clone();
 
@@ -68,7 +72,7 @@ impl YoutubeDownloader {
                 }
             };
 
-            run_download(&app_handle, task_id, url, destination, token).await;
+            run_download(&app_handle, task_id, url, destination, token, speed_limit).await;
         });
 
         Ok(())
@@ -167,6 +171,7 @@ async fn run_download(
     url: String,
     destination: String,
     token: CancellationToken,
+    speed_limit: Arc<RwLock<u64>>,
 ) {
     let outbase = strip_mp4_ext(&destination); // e.g. C:\Downloads\My Video
 
@@ -204,6 +209,18 @@ async fn run_download(
     if let Some(dir) = super::bundled_tool_dir(app, "ffmpeg") {
         args.push("--ffmpeg-location".into());
         args.push(dir.to_string_lossy().to_string());
+    }
+
+    // Apply the global speed cap if set (yt-dlp's --limit-rate uses K/M/G suffixes)
+    let limit_bps = *speed_limit.read().await;
+    if limit_bps > 0 {
+        let rate_str = if limit_bps >= 1024 * 1024 {
+            format!("{}M", limit_bps / (1024 * 1024))
+        } else {
+            format!("{}K", limit_bps / 1024)
+        };
+        args.push("--limit-rate".into());
+        args.push(rate_str);
     }
 
     args.push(url.clone());

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDownloadStore } from '../store/downloadStore';
 import { DownloadItem } from './DownloadItem';
 import { Sidebar } from './Sidebar';
@@ -7,30 +7,44 @@ import { Settings } from './Settings';
 import { SchedulerModal } from './SchedulerModal';
 import { PasswordManager } from './PasswordManager';
 import { LogsModal } from './LogsModal';
+import { SpeedGraph } from './SpeedGraph';
 import { Plus, Coffee } from 'lucide-react';
 import styles from './Dashboard.module.css';
 
-export const Dashboard: React.FC = () => {
+interface Props {
+  pendingClipUrl?: string | null;
+  onPendingClipUrlConsumed?: () => void;
+}
+
+export const Dashboard: React.FC<Props> = ({ pendingClipUrl, onPendingClipUrlConsumed }) => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [prefilledUrl, setPrefilledUrl] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSchedulerOpen, setIsSchedulerOpen] = useState(false);
   const [isPasswordsOpen, setIsPasswordsOpen] = useState(false);
   const [isLogsOpen, setIsLogsOpen] = useState(false);
   const { tasks } = useDownloadStore();
 
+  // Open the add-download modal pre-filled with a clipboard URL
+  useEffect(() => {
+    if (pendingClipUrl) {
+      setPrefilledUrl(pendingClipUrl);
+      setIsModalOpen(true);
+      onPendingClipUrlConsumed?.();
+    }
+  }, [pendingClipUrl, onPendingClipUrlConsumed]);
+
   const q = searchQuery.trim().toLowerCase();
   const filteredTasks = tasks.filter((task) => {
-    // Status / category filter (unchanged behaviour).
     if (activeFilter === 'downloading' && task.status !== 'downloading') return false;
     if (activeFilter === 'completed' && task.status !== 'completed') return false;
     if (activeFilter === 'queued' && task.status !== 'queued' && task.status !== 'paused') return false;
-    if (['software', 'video', 'music', 'documents'].includes(activeFilter)) {
+    if (['software', 'video', 'music', 'documents', 'archives'].includes(activeFilter)) {
       if (task.category.toLowerCase() !== activeFilter) return false;
     }
 
-    // Search filter (across URL + filename, case-insensitive).
     if (q) {
       const haystack = `${task.url} ${task.filename}`;
       if (!haystack.toLowerCase().includes(q)) return false;
@@ -38,6 +52,8 @@ export const Dashboard: React.FC = () => {
 
     return true;
   });
+
+  const hasActiveDownloads = tasks.some((t) => t.status === 'downloading');
 
   return (
     <div className={styles.dashboardContainer}>
@@ -62,10 +78,9 @@ export const Dashboard: React.FC = () => {
             />
           </div>
 
-
           <div style={{ display: 'flex', gap: '10px' }}>
             <a
-              href="https://buymeacoffee.com/YOUR_USERNAME"
+              href="https://buymeacoffee.com/"
               target="_blank"
               rel="noreferrer"
               className="btn-icon"
@@ -76,7 +91,7 @@ export const Dashboard: React.FC = () => {
               Support
             </a>
 
-            <button className={`btn-primary ${styles.addBtn}`} onClick={() => setIsModalOpen(true)}>
+            <button className={`btn-primary ${styles.addBtn}`} onClick={() => { setPrefilledUrl(''); setIsModalOpen(true); }}>
               <Plus size={18} />
               <span>New Download</span>
             </button>
@@ -84,6 +99,8 @@ export const Dashboard: React.FC = () => {
         </header>
 
         <div className={styles.contentArea}>
+          {hasActiveDownloads && <SpeedGraph />}
+
           <div className={styles.listHeader}>
             <h2>{activeFilter === 'all' ? 'All Downloads' : activeFilter.charAt(0).toUpperCase() + activeFilter.slice(1)}</h2>
             <span className={styles.taskCount}>{filteredTasks.length} tasks</span>
@@ -105,7 +122,7 @@ export const Dashboard: React.FC = () => {
         </div>
       </main>
 
-      <AddDownloadModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <AddDownloadModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} prefilledUrl={prefilledUrl} />
       <Settings isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <SchedulerModal isOpen={isSchedulerOpen} onClose={() => setIsSchedulerOpen(false)} />
       <PasswordManager isOpen={isPasswordsOpen} onClose={() => setIsPasswordsOpen(false)} />

@@ -1,8 +1,10 @@
 use reqwest::{header::RANGE, Client};
+use std::sync::Arc;
 use std::time::Instant;
 use tauri::Emitter;
 use tokio::fs::{File, OpenOptions};
 use tokio::io::AsyncWriteExt;
+use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 
 use super::queue::Permits;
@@ -11,23 +13,19 @@ use super::queue::Permits;
 pub struct HttpDownloader {
     client: Client,
     permits: Permits,
+    speed_limit: Arc<RwLock<u64>>,
 }
 
 impl HttpDownloader {
-    pub fn new(permits: Permits) -> Self {
+    pub fn new(permits: Permits, speed_limit: Arc<RwLock<u64>>) -> Self {
         let client = Client::builder()
             .user_agent("BestDownloadManager/1.0 (FOSS)")
             .build()
             .expect("Failed to build HTTP client");
 
-        Self { client, permits }
+        Self { client, permits, speed_limit }
     }
 
-    /// Starts an HTTP download. Supports resume via HTTP Range: the file is
-    /// streamed to `<destination>.part` and only renamed to `destination` once
-    /// it completes cleanly. If a `.part` from a previous (paused/failed) run
-    /// exists, the download continues from where it left off (206) or restarts
-    /// from the beginning if the server ignores ranges (200).
     pub async fn start_download(
         &self,
         app_handle: tauri::AppHandle,
@@ -35,13 +33,12 @@ impl HttpDownloader {
         url: String,
         destination: String,
         token: CancellationToken,
+        speed_limit: Arc<RwLock<u64>>,
     ) -> Result<(), String> {
         let client = self.client.clone();
         let sem = self.permits.read().unwrap().clone();
 
         tokio::spawn(async move {
-            // Count this task against the concurrency limit; emit "queued"
-            // while we wait for a slot.
             let _ = app_handle.emit(
                 "download_progress",
                 serde_json::json!({
@@ -78,6 +75,7 @@ impl HttpDownloader {
                 &url,
                 &destination,
                 token,
+                speed_limit,
             )
             .await;
         });
@@ -93,10 +91,10 @@ async fn run_download(
     url: &str,
     destination: &str,
     token: CancellationToken,
+    speed_limit: Arc<RwLock<u64>>,
 ) {
     let part_path = format!("{}.part", destination);
 
-    // How much of the previous run is still on disk? That's our resume offset.
     let mut downloaded_bytes: u64 = 0;
     let partial_mode = match tokio::fs::metadata(&part_path).await {
         Ok(meta) if meta.is_file() => {
@@ -126,10 +124,6 @@ async fn run_download(
 
     let status = res.status();
 
-    // 416 Range Not Satisfiable with an existing partial means the part already
-    // reached the end of the file (this happens when an earlier run finished
-    // downloading but the .part -> destination rename failed). Finalize it
-    // instead of redownloading from zero.
     if status == reqwest::StatusCode::RANGE_NOT_SATISFIABLE && partial_mode {
         drop(res);
         if tokio::fs::rename(&part_path, &destination).await.is_err() {
@@ -153,17 +147,12 @@ async fn run_download(
         return;
     }
 
-    // 206 Partial Content => the server honored our Range and we can append.
-    // Anything else (e.g. 200) => start over from byte 0.
     let resuming = status == reqwest::StatusCode::PARTIAL_CONTENT;
     if partial_mode && !resuming {
-        // Stale or unsupported - start fresh from byte 0.
         downloaded_bytes = 0;
     }
 
-    // Resolve the total size of the file for the UI.
     let overall_total: u64 = if resuming {
-        // Try Content-Range total first; otherwise total = existing + remaining.
         if let Some(total) = res
             .headers()
             .get(reqwest::header::CONTENT_RANGE)
@@ -179,7 +168,11 @@ async fn run_download(
         content_length(&res).unwrap_or(0)
     };
 
-    // Open the .part file.
+    // Make sure the destination directory exists.
+    if let Some(parent) = std::path::Path::new(destination).parent() {
+        let _ = tokio::fs::create_dir_all(parent).await;
+    }
+
     let mut file = if resuming {
         match OpenOptions::new().append(true).open(&part_path).await {
             Ok(f) => f,
@@ -208,11 +201,6 @@ async fn run_download(
         }
     };
 
-    // Make sure the destination directory exists.
-    if let Some(parent) = std::path::Path::new(destination).parent() {
-        let _ = tokio::fs::create_dir_all(parent).await;
-    }
-
     let _ = app_handle.emit(
         "download_progress",
         serde_json::json!({
@@ -230,6 +218,9 @@ async fn run_download(
 
     let mut last_emit = Instant::now();
     let mut bytes_since_last_emit: u64 = 0;
+    // For rate limiting: track bytes written in the current 1-second window.
+    let mut rate_window_start = Instant::now();
+    let mut bytes_in_window: u64 = 0;
     let mut res_mut = res;
 
     loop {
@@ -265,6 +256,32 @@ async fn run_download(
                         let len = c.len() as u64;
                         downloaded_bytes += len;
                         bytes_since_last_emit += len;
+                        bytes_in_window += len;
+
+                        // -- Rate limiting (token-bucket per second) --
+                        let limit = *speed_limit.read().await;
+                        if limit > 0 {
+                            let window_elapsed = rate_window_start.elapsed();
+                            if window_elapsed.as_secs_f64() < 1.0 {
+                                // Within the current 1-second window: have we exceeded the cap?
+                                if bytes_in_window > limit {
+                                    let remaining_window_ms =
+                                        ((1.0 - window_elapsed.as_secs_f64()) * 1000.0) as u64;
+                                    if remaining_window_ms > 0 {
+                                        tokio::time::sleep(
+                                            tokio::time::Duration::from_millis(remaining_window_ms),
+                                        )
+                                        .await;
+                                    }
+                                    rate_window_start = Instant::now();
+                                    bytes_in_window = 0;
+                                }
+                            } else {
+                                // New second window
+                                rate_window_start = Instant::now();
+                                bytes_in_window = len;
+                            }
+                        }
 
                         let now = Instant::now();
                         let elapsed = now.duration_since(last_emit).as_millis();
@@ -301,12 +318,9 @@ async fn run_download(
         }
     }
 
-    // Finished: flush, promote .part -> destination, emit completed.
     let _ = file.flush().await;
     let rename_result = tokio::fs::rename(&part_path, &destination).await;
     if let Err(e) = rename_result {
-        // `rename` across some filesystems / when destination exists can fail;
-        // fall back to removing the destination first.
         let _ = tokio::fs::remove_file(&destination).await;
         if let Err(e2) = tokio::fs::rename(&part_path, &destination).await {
             emit_error(
@@ -317,7 +331,7 @@ async fn run_download(
             );
             return;
         }
-        let _ = e; // original error superseded by retry result
+        let _ = e;
     }
 
     let _ = app_handle.emit(
@@ -343,8 +357,6 @@ fn content_length(res: &reqwest::Response) -> Option<u64> {
         .and_then(|val| val.parse::<u64>().ok())
 }
 
-/// Parse an HTTP `Content-Range` value of the form `bytes start-end/total`
-/// (or `bytes */total`) and return the total size, if present.
 fn content_range_total(value: &str) -> Option<u64> {
     let after_slash = value.rsplit('/').next()?;
     let trimmed = after_slash.trim();

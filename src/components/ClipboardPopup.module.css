@@ -1,0 +1,56 @@
+.popup {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 340px;
+  padding: 14px 16px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-left: 3px solid var(--primary-accent);
+}
+
+.iconRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.urlText {
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-all;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btnDismiss {
+  background: transparent;
+  border: 1px solid var(--surface-highlight);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+
+.btnDismiss:hover {
+  border-color: var(--text-secondary);
+}

@@ -1,0 +1,44 @@
+.card {
+  padding: 14px 16px 10px;
+  margin-bottom: 12px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.speed {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary-accent);
+}
+
+.idle {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 20px 0;
+}
+
+.tooltip {
+  background: var(--surface-color);
+  border: 1px solid var(--surface-highlight);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--text-primary);
+}

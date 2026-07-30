@@ -8,9 +8,24 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            ytdlp-binary: yt-dlp.exe
+            artifact-name: BestDownloadManager-Windows
+          - os: ubuntu-latest
+            ytdlp-binary: yt-dlp_linux
+            artifact-name: BestDownloadManager-Linux
+          - os: macos-latest
+            ytdlp-binary: yt-dlp_macos
+            artifact-name: BestDownloadManager-macOS
+
     steps:
     - uses: actions/checkout@v4
 
@@ -25,13 +40,29 @@ jobs:
     - name: Cache dependencies
       uses: Swatinem/rust-cache@v2
 
+    - name: Install Linux system dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libwebkit2gtk-4.1-dev \
+          libappindicator3-dev \
+          librsvg2-dev \
+          patchelf \
+          libssl-dev \
+          libgtk-3-dev \
+          xdotool
+
     - name: Install Frontend Dependencies
       run: npm ci
 
     - name: Download yt-dlp
+      shell: bash
       run: |
         mkdir -p src-tauri/binaries
-        curl -L -o src-tauri/binaries/yt-dlp.exe https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe
+        curl -L -o "src-tauri/binaries/${{ matrix.ytdlp-binary }}" \
+          "https://github.com/yt-dlp/yt-dlp/releases/latest/download/${{ matrix.ytdlp-binary }}"
+        chmod +x "src-tauri/binaries/${{ matrix.ytdlp-binary }}"
 
     - name: Run Tests (Rust)
       run: cargo test
@@ -40,11 +71,34 @@ jobs:
     - name: Build Tauri App
       run: npm run tauri build
 
+    - name: Create Portable ZIP (Windows only)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $version = "${{ github.ref_name }}"
+        if (-not $version) { $version = "dev" }
+        $dir = "portable-temp"
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        $exe = Get-ChildItem -Path "src-tauri/target/release" -Filter "*.exe" |
+               Where-Object { $_.Name -notmatch "build|deps" } |
+               Select-Object -First 1
+        if ($exe) { Copy-Item $exe.FullName "$dir/" }
+        Copy-Item "src-tauri/binaries/yt-dlp.exe" "$dir/" -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Force -Path "portable" | Out-Null
+        Compress-Archive -Path "$dir/*" -DestinationPath "portable/BestDownloadManager-Portable-Windows-x64-${version}.zip" -Force
+
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: BestDownloadManager-Windows
+        name: ${{ matrix.artifact-name }}
         path: src-tauri/target/release/bundle/
+
+    - name: Upload Portable ZIP (Windows)
+      if: runner.os == 'Windows'
+      uses: actions/upload-artifact@v4
+      with:
+        name: BestDownloadManager-Windows-Portable
+        path: portable/*.zip
 
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
@@ -53,15 +107,28 @@ jobs:
         files: |
           src-tauri/target/release/bundle/nsis/*.exe
           src-tauri/target/release/bundle/msi/*.msi
+          src-tauri/target/release/bundle/deb/*.deb
+          src-tauri/target/release/bundle/appimage/*.AppImage
+          src-tauri/target/release/bundle/dmg/*.dmg
+          portable/*.zip
         body: |
           **Best Download Manager ${{ github.ref_name }}**
 
-          ### What's included
-          - Self-contained installer — no runtime dependencies
-          - **yt-dlp** (built-in) — YouTube & video site downloads
-          - Native BitTorrent engine (magnet links)
-          - Multi-threaded HTTP download engine with resume
-          - Download queue, scheduler, and categorization
+          ### Downloads
+          | Platform | Installer | Portable |
+          |---|---|---|
+          | Windows | `.exe` (NSIS installer) or `.msi` | `.zip` (no install needed) |
+          | Linux | `.deb` (Debian/Ubuntu) or `.AppImage` | — |
+          | macOS | `.dmg` | — |
 
-          > **Note:** For YouTube best-quality merging, install [ffmpeg](https://ffmpeg.org/) and add it to your PATH. Without it, yt-dlp downloads the best single stream.
+          ### What's included
+          - **yt-dlp** (built-in) — YouTube & video site downloads
+          - Native BitTorrent engine (magnet links + .torrent files)
+          - Multi-threaded HTTP downloads with resume support
+          - Global speed limiter
+          - Clipboard URL monitoring
+          - Auto-categorization into Videos, Music, Software, Documents, Archives
+          - Live download speed graph
+
+          > For best-quality YouTube audio+video muxing, install [ffmpeg](https://ffmpeg.org/) and add it to PATH. Without it, yt-dlp downloads the best single stream.
         make_latest: true
