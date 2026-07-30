@@ -1,26 +1,41 @@
 # Vanguard / Best Download Manager
 
-A download manager for Windows with HTTP, BitTorrent, and YouTube support. Built with Tauri, React, and Rust.
+A Windows download manager that handles HTTP downloads, BitTorrent magnet links, and YouTube videos. Ships with yt-dlp and ffmpeg bundled — no extra setup needed.
 
+[![Build](https://github.com/PiperAtGates/BestDownloadManager/actions/workflows/build.yml/badge.svg)](https://github.com/PiperAtGates/BestDownloadManager/actions/workflows/build.yml)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-blue?logo=tauri)](https://tauri.app)
 [![Rust](https://img.shields.io/badge/Rust-Backend-orange?logo=rust)](https://www.rust-lang.org)
-[![React](https://img.shields.io/badge/React-Frontend-61DAFB?logo=react)](https://reactjs.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ## Features
 
-- HTTP downloads with resume support
-- BitTorrent (magnet links)
-- YouTube video extraction
-- Download queue management
-- Dark theme UI
+- **HTTP downloads** — multi-threaded, resume support
+- **BitTorrent** — magnet link support via librqbit
+- **YouTube** — video downloads via built-in yt-dlp, with ffmpeg for high-quality muxing
+- **Download queue** — pause, resume, cancel, prioritize
+- **Scheduler** — set downloads to run at specific times
+- **Browser extension companion** — basic native messaging support
+- **Dark theme** — clean UI built with React + Zustand
 
-## Build
+## Downloads
+
+Grab the latest installer from the [Releases page](https://github.com/PiperAtGates/BestDownloadManager/releases). The installer includes yt-dlp and ffmpeg — everything works out of the box.
+
+## Build from source
+
+**Prerequisites:** Node.js 20+, Rust, Visual Studio C++ Build Tools (Windows).
 
 ```bash
 npm install
-npm run tauri dev
+npm run tauri dev     # development mode
+npm run tauri build   # production build
 ```
+
+## Tech stack
+
+Frontend: React, TypeScript, Zustand, Vite  
+Backend: Rust, Tauri v2  
+Downloads: reqwest (HTTP), librqbit (BitTorrent), yt-dlp (YouTube), ffmpeg (muxing)
 
 ## License
 
