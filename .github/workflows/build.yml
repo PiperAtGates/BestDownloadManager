@@ -25,6 +25,20 @@ jobs:
     - name: Install Frontend Dependencies
       run: npm ci
 
+    - name: Download yt-dlp
+      run: |
+        mkdir -p src-tauri/binaries
+        curl -L -o src-tauri/binaries/yt-dlp.exe https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe
+
+    - name: Download ffmpeg
+      shell: pwsh
+      run: |
+        mkdir -p src-tauri/binaries -Force
+        curl -L -o ffmpeg.zip https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
+        Expand-Archive -Path ffmpeg.zip -DestinationPath ffmpeg-temp
+        Copy-Item (Get-ChildItem -Path ffmpeg-temp -Recurse -Filter "ffmpeg.exe").FullName src-tauri/binaries/ffmpeg.exe
+        Remove-Item -Recurse -Force ffmpeg.zip, ffmpeg-temp
+
     - name: Run Tests (Rust)
       run: cargo test
       working-directory: ./src-tauri
